@@ -54,6 +54,10 @@ downloads PostgreSQL **18.6.0** from the Theseus GitHub releases into
 downloads, and budget time for the download before presenting. Cargo
 downloads the locked Rust dependencies separately during the build.
 
+Open the storefront at `http://127.0.0.1:8080/` to browse the fictional
+catalog and follow the seller and finance walkthrough. The Rust server
+serves the page and its assets with the same launch command.
+
 The server seeds two fictional purchases and prints the GraphQL endpoint
 (default `http://127.0.0.1:8080/graphql`) and four export commands. The
 endpoint serves queries, mutations and subscriptions. Use the terminal
@@ -214,8 +218,10 @@ The tests cover checkout validation and a real Postgres/GraphQL access
 matrix: allowed views, forbidden fields and projections, introspection,
 seller isolation, authentication, blocked writes and capability escalation,
 raw command/event redaction even at admin level, immediate capability
-revocation, and the absence of REST routes. The integration test starts an
-isolated embedded database in the system temporary directory. Run
+revocation, and the absence of REST routes. The suite also checks that
+the public catalog and walkthrough load without exposing orders or tokens.
+The access-control test starts an isolated embedded database in the system
+temporary directory. Run
 `cargo test --locked --test access_control` as a regular user with the
 embedded runtime libraries and first-run download access described above.
 The test creates and starts its own database even if `DATABASE_URL` is set.

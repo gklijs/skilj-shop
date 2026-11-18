@@ -39,6 +39,7 @@ async fn run() -> Result<(), Error> {
     let demo = Demo::start(&database_url, &PathBuf::from(".demo/keys.json")).await?;
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
     let address = listener.local_addr()?;
+    println!("Storefront is ready at http://{address}/");
     println!("GraphQL is ready at http://{address}/graphql");
     println!("Copy these exports into another terminal, then run the seller query in the README walkthrough.");
     println!("export GRAPHQL_URL='http://{address}/graphql'");

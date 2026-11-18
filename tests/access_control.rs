@@ -1,7 +1,11 @@
-//! Real Postgres + real signed JWTs + the production GraphQL HTTP router.
+//! Real Postgres + real signed JWTs + the demo's HTTP router.
 //! This test fails if Postgres cannot start; authorization checks never skip.
-use axum::{body::Body, http::Request};
+use axum::{
+    body::Body,
+    http::{header, Request, StatusCode},
+};
 use chrono::Utc;
+use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use skilj::local::{LocalConfig, LocalPostgres};
 use skilj_core::{access_control::AccessLevel, db};
@@ -28,6 +32,82 @@ fn denied(response: &Value) {
     );
 }
 
+async fn assert_storefront_serves_catalog_without_private_data(demo: &Demo) -> Result<(), Error> {
+    let orders = sample_orders();
+    for (path, content_type) in [
+        ("/", "text/html; charset=utf-8"),
+        ("/walkthrough", "text/html; charset=utf-8"),
+        ("/assets/storefront.css", "text/css; charset=utf-8"),
+        ("/assets/keyboard.webp", "image/webp"),
+        ("/assets/dock.webp", "image/webp"),
+        ("/assets/mat.webp", "image/webp"),
+    ] {
+        let response = demo
+            .router
+            .clone()
+            .oneshot(Request::get(path).body(Body::empty())?)
+            .await?;
+        assert_eq!(response.status(), StatusCode::OK, "{path}");
+        assert_eq!(response.headers()[header::CONTENT_TYPE], content_type);
+        let body = response.into_body().collect().await?.to_bytes();
+        assert!(!body.is_empty(), "{path} returned an empty body");
+        if content_type == "image/webp" {
+            assert!(body.starts_with(b"RIFF") && body.get(8..12) == Some(b"WEBP"));
+        }
+
+        let body = String::from_utf8_lossy(&body);
+        if path == "/" {
+            for expected in [
+                "Mechanical Keyboard",
+                "USB-C Dock",
+                "Felt Desk Mat",
+                "€139.00",
+                "€89.00",
+                "€34.00",
+                r#"href="/walkthrough""#,
+                r#"href="/assets/storefront.css""#,
+                r#"src="/assets/keyboard.webp""#,
+                r#"src="/assets/dock.webp""#,
+                r#"src="/assets/mat.webp""#,
+            ] {
+                assert!(body.contains(expected), "{path} is missing {expected}");
+            }
+        }
+        if path == "/walkthrough" {
+            assert!(body.contains("queries/seller.graphql"));
+            assert!(body.contains("queries/finance.graphql"));
+        }
+
+        for identity in [
+            &demo.seller,
+            &demo.other_seller,
+            &demo.finance,
+            &demo.operator,
+        ] {
+            assert!(!body.contains(&identity.token), "{path} leaked a JWT");
+        }
+        for order in &orders {
+            for value in [
+                &order.order_id,
+                &order.seller_id,
+                &order.email,
+                &order.address,
+            ] {
+                assert!(!body.contains(value), "{path} leaked private order data");
+            }
+            let cents = order.price_paid_cents;
+            assert!(
+                !body.contains(&cents.to_string()),
+                "{path} leaked a payment amount"
+            );
+            let formatted = format!("€{}.{:02}", cents / 100, cents % 100);
+            assert!(!body.contains(&formatted), "{path} leaked a payment amount");
+        }
+    }
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn roles_cannot_cross_payment_fulfillment_or_seller_boundaries() -> Result<(), Error> {
     let root = std::env::temp_dir().join(format!(
@@ -42,6 +122,7 @@ async fn roles_cannot_cross_payment_fulfillment_or_seller_boundaries() -> Result
     })
     .await?;
     let demo = Demo::start(postgres.database_url(), &root.join("keys.json")).await?;
+    assert_storefront_serves_catalog_without_private_data(&demo).await?;
     let variables = json!({"order": "order-1001"});
 
     let seller = graphql(

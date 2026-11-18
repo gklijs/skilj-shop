@@ -1,5 +1,6 @@
 pub mod demo;
 pub mod shop;
+mod storefront;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 

@@ -17,7 +17,7 @@ use skilj_core::{
 };
 use tower::ServiceExt;
 
-use crate::{shop, Error};
+use crate::{shop, storefront, Error};
 
 const ISSUER: &str = "https://skilj-shop.example.test";
 const AUDIENCE: &str = "skilj-shop-talk";
@@ -99,8 +99,7 @@ impl Demo {
         let finance = seed_identity(&pool, &keys, "Finance", None, shop::FINANCE).await?;
         admin.close().await;
 
-        // Deliberately mount only the GraphQL router; no REST routes or tokens.
-        let router = skilj.graphql_router().await?;
+        let router = skilj.graphql_router().await?.merge(storefront::router());
         let demo = Self {
             skilj,
             router,
