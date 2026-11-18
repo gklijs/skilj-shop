@@ -320,3 +320,29 @@ on first run. To run it by itself, use:
 ```sh
 cargo test --locked --test access_control
 ```
+
+### Review the project skills
+
+Start Codex at the repository root to discover the skills under `.agents/skills`.
+They are included in the checkout and need no personal skill installation.
+
+| Task | Skill |
+| --- | --- |
+| Edit the public catalog or add a product image | [skilj-shop-storefront](.agents/skills/skilj-shop-storefront/SKILL.md) |
+| Change what a seller or finance can read | [skilj-shop-projections](.agents/skills/skilj-shop-projections/SKILL.md) |
+
+Skilj 0.4.0 ships six maintained guides inside the published `skilj` crate.
+The storefront skill is original to this demo. The projection skill adapts
+the upstream guide's projection mechanics to the shop's manual registration,
+role grants, and regression tests. The upstream crate is dual-licensed under
+MIT or Apache-2.0. The adapted material is redistributed under MIT with its
+original copyright and permission notice. [Skilj 0.4.0 guide index](https://github.com/gklijs/SkilJ/blob/v0.4.0/skilj/agent-guides/README.md) · [Projection reference](https://github.com/gklijs/SkilJ/blob/v0.4.0/skilj/agent-guides/skilj/references/projection.md) · [Bundled MIT notice](.agents/skills/skilj-shop-projections/LICENSE-MIT)
+
+When upgrading skilj, review `agent-guides/` in the newly locked `skilj`
+crate. `cargo metadata --locked --format-version 1` reports that package's
+`manifest_path`. Compare its projection guide with the pinned source above,
+then check the local instructions against the new projection API,
+registration behavior, and access-control contracts. Update the provenance
+and license notice if the bundled source changes. Check skill discovery in
+a fresh Codex session and rerun the catalog and role checks described in
+the skills.

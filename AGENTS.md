@@ -2,15 +2,44 @@
 
 ## Project Structure & Module Organization
 
-The Rust demo entry point is `src/main.rs`. Domain logic and policies live in
-`src/shop.rs`, demo identities and seeded orders in `src/demo.rs`, GraphQL
-examples in `queries/`, and integration tests in `tests/`.
+- `src/main.rs` starts the loopback HTTP server and chooses a database.
+  `src/lib.rs` registers the `shop` bounded context with skilj.
+- `src/shop.rs` defines `PlaceOrder`, `OrderPlaced`, both order projections,
+  and their access policies. `src/demo.rs` configures demo identities and
+  grants, signs JWTs, and seeds purchases through `PlaceOrder`.
+- `src/storefront.rs` serves the public routes and assets from `storefront/`.
+  `queries/` contains seller, finance, and introspection examples.
+
+## Domain Boundaries
+
+Keep the public catalog's list prices and product copy independent of seeded
+purchases. Sellers read fulfillment details only for their own orders.
+Finance reads payment details across sellers. Both roles are read-only.
+Preserve the projection capability gates, seller owner scope, and matching
+private-field rules on the command and event when changing the order model.
+See [How access is enforced](README.md#how-access-is-enforced).
+
+## Project Skills
+
+Codex discovers these skills from the checkout. Read the linked skill for
+the relevant task.
+
+- [skilj-shop-storefront](.agents/skills/skilj-shop-storefront/SKILL.md) for
+  product cards, public list prices, and product assets.
+- [skilj-shop-projections](.agents/skills/skilj-shop-projections/SKILL.md) for
+  role-specific projection fields, access gates, and seller isolation.
+
+See [Review the project skills](README.md#review-the-project-skills) when
+upgrading skilj.
 
 ## Build, Test, and Development Commands
 
-Use `cargo build --locked` to build and `cargo run --locked` to start the demo.
-See `README.md` for system prerequisites, the dedicated PostgreSQL fallback,
-and the GraphQL walkthrough. Use `cargo fmt --check` and
+The demo pins `skilj` and `skilj-core` to `0.4.0` and requires Rust 1.95 or
+newer. Run `cargo build --locked` to build and `cargo run --locked` to launch
+from the repository root. See the [README](README.md#quickstart) for system
+prerequisites, the storefront, and the GraphQL walkthrough, and
+[database setup](README.md#database-setup-and-troubleshooting) for the
+dedicated PostgreSQL fallback. Use `cargo fmt --check` and
 `cargo clippy --locked --all-targets -- -D warnings` for formatting and linting.
 
 ## Coding Style & Naming Conventions
@@ -20,11 +49,13 @@ and avoid unrelated formatting edits.
 
 ## Testing Guidelines
 
-Run `cargo test --locked` to discover and run tests under `tests/`.
-`cargo test --locked --test access_control` runs the authorization integration
-test, which requires embedded PostgreSQL at runtime. Add tests for new
-behavior and regression tests for bug fixes. Use descriptive test names
-that explain the expected behavior.
+Run `cargo test --locked` for the full suite. `cargo test --locked --test orders`
+checks command validation and duplicate order IDs without PostgreSQL.
+`cargo test --locked --test access_control` checks role-specific GraphQL
+reads, seller isolation, and public storefront responses. That test starts
+its own embedded PostgreSQL instance. See [Develop and verify](README.md#develop-and-verify)
+for runtime requirements. Add tests for new behavior and regression tests
+for bug fixes. Use descriptive test names that explain the expected behavior.
 
 ## Commit & Pull Request Guidelines
 
