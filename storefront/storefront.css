@@ -213,37 +213,13 @@ a:focus-visible {
     color: var(--muted);
 }
 
-.steps {
-    display: grid;
-    gap: 1.5rem;
-    margin: 2rem 0 0;
-    padding-inline-start: 1.5rem;
+.guide section {
+    margin-top: 1.5rem;
 }
 
-.steps li {
-    min-width: 0;
-}
-
-.steps li::marker {
-    color: var(--accent);
-    font-weight: 700;
-}
-
-.steps h2 {
+.guide h2 {
     font-size: 1.15rem;
     line-height: 1.35;
-}
-
-.steps pre {
-    margin: 0.75rem 0 0;
-    padding: 0.9rem 1rem;
-    border: 1px solid var(--line);
-    border-radius: 0.5rem;
-    background: #fff;
-    color: var(--ink);
-    font-size: 0.875rem;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
 }
 
 @media (max-width: 36rem) {

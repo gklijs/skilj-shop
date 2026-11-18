@@ -19,36 +19,19 @@
 
     <main class="wrap guide">
         <h1>Seller &amp; finance walkthrough</h1>
-        <p>Run the two GraphQL queries for the same purchase to see which fields each role can access.</p>
-        <ol class="steps">
-            <li>
-                <h2>Set up your terminal</h2>
-                <p>From the repository root in a second terminal, paste the exports printed by the running demo. Define this helper using <code>jq</code> and <code>curl</code>.</p>
-                <pre><code>gql() {
-  jq -n --rawfile query "$2" '{query: $query}' |
-    curl -sS "$GRAPHQL_URL" \
-      -H "Authorization: Bearer $1" \
-      -H 'Content-Type: application/json' \
-      --data-binary @- | jq
-}</code></pre>
-            </li>
-            <li>
-                <h2>Fulfill the order as the seller</h2>
-                <p>The seller gets the order reference, product description, quantity, and shipping address.</p>
-                <pre><code>gql "$SELLER_TOKEN" queries/seller.graphql</code></pre>
-            </li>
-            <li>
-                <h2>Reconcile the payment as finance</h2>
-                <p>Finance gets the same order reference, along with the customer email, price paid, and currency.</p>
-                <pre><code>gql "$FINANCE_TOKEN" queries/finance.graphql</code></pre>
-            </li>
-            <li>
-                <h2>Check the role boundary</h2>
-                <p>Swap the role used for each query. Both requests return GraphQL errors.</p>
-                <pre><code>gql "$FINANCE_TOKEN" queries/seller.graphql
-gql "$SELLER_TOKEN" queries/finance.graphql</code></pre>
-            </li>
-        </ol>
+        <p>Follow the <a href="https://github.com/gklijs/skilj-shop/blob/main/README.md#set-the-demo-tokens">terminal walkthrough in the README</a> to query the same purchase as a seller and as finance.</p>
+        <section>
+            <h2>Seller fulfillment</h2>
+            <p>The seller gets the order reference, product description, quantity, and shipping address for their own orders.</p>
+        </section>
+        <section>
+            <h2>Finance reconciliation</h2>
+            <p>Finance gets the order reference, customer email, price paid, and currency across all sellers’ orders.</p>
+        </section>
+        <section>
+            <h2>Access boundaries</h2>
+            <p>GraphQL denies requests for another role’s view or, for sellers, another seller’s order.</p>
+        </section>
     </main>
 </body>
 </html>

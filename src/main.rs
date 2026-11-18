@@ -18,6 +18,11 @@ async fn run() -> Result<(), Error> {
     let port: u16 = std::env::var("PORT")
         .unwrap_or_else(|_| "8080".into())
         .parse()?;
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
+        .await
+        .map_err(|error| format!("could not bind HTTP listener at 127.0.0.1:{port}: {error}"))?;
+    let address = listener.local_addr()?;
+
     let local = if std::env::var_os("DATABASE_URL").is_none() {
         let mut config = LocalConfig::from_env()?;
         if std::env::var_os("SKILJ_LOCAL_DATA_DIR").is_none() {
@@ -37,8 +42,6 @@ async fn run() -> Result<(), Error> {
         None => std::env::var("DATABASE_URL")?,
     };
     let demo = Demo::start(&database_url, &PathBuf::from(".demo/keys.json")).await?;
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
-    let address = listener.local_addr()?;
     println!("Storefront is ready at http://{address}/");
     println!("GraphQL is ready at http://{address}/graphql");
     println!("Copy these exports into another terminal, then run the seller query in the README walkthrough.");

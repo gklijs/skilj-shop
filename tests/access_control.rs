@@ -74,8 +74,9 @@ async fn assert_storefront_serves_catalog_without_private_data(demo: &Demo) -> R
             }
         }
         if path == "/walkthrough" {
-            assert!(body.contains("queries/seller.graphql"));
-            assert!(body.contains("queries/finance.graphql"));
+            assert!(body.contains(
+                r#"href="https://github.com/gklijs/skilj-shop/blob/main/README.md#set-the-demo-tokens""#
+            ));
         }
 
         for identity in [
@@ -152,14 +153,17 @@ async fn roles_cannot_cross_payment_fulfillment_or_seller_boundaries() -> Result
         json!({"orderId": "order-1001",
         "email": "alice@example.test", "pricePaidCents": 12995, "currency": "EUR"})
     );
-    success(
-        &graphql(
-            &demo.router,
-            Some(&demo.finance.token),
-            FINANCE_QUERY,
-            json!({"order": "order-1002"}),
-        )
-        .await?,
+    let finance_other_order = graphql(
+        &demo.router,
+        Some(&demo.finance.token),
+        FINANCE_QUERY,
+        json!({"order": "order-1002"}),
+    )
+    .await?;
+    success(&finance_other_order);
+    assert_eq!(
+        finance_other_order["data"]["projection"]["orderId"],
+        "order-1002"
     );
 
     // Cross-role projections, aliases, and nonexistent fields all fail.
@@ -211,15 +215,15 @@ async fn roles_cannot_cross_payment_fulfillment_or_seller_boundaries() -> Result
         )
         .await?,
     );
-    success(
-        &graphql(
-            &demo.router,
-            Some(&demo.other_seller.token),
-            SELLER_QUERY,
-            json!({"order": "order-1002"}),
-        )
-        .await?,
-    );
+    let other_seller = graphql(
+        &demo.router,
+        Some(&demo.other_seller.token),
+        SELLER_QUERY,
+        json!({"order": "order-1002"}),
+    )
+    .await?;
+    success(&other_seller);
+    assert_eq!(other_seller["data"]["projection"]["orderId"], "order-1002");
 
     // Introspection itself hides the other group's projection and fields.
     let schema_query = include_str!("../queries/introspection.graphql");
