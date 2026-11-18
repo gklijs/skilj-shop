@@ -17,56 +17,130 @@ sellers hold `fulfillment` plus a seller scope. These are database grants,
 not client-supplied role headers. Neither role can create orders or manage
 access. The trusted demo operator places orders during startup.
 
-## Run
+## Set up a fresh checkout
 
-Install Rust **1.95+**, a C compiler, CMake, pkg-config and OpenSSL development
-headers. On Debian/Ubuntu: `sudo apt install build-essential cmake pkg-config libssl-dev`.
-Then run:
+Install the build tools on Debian 12 or Ubuntu 26.04. The command also
+installs `curl` and `jq` for the GraphQL walkthrough.
 
 ```sh
+sudo apt-get update
+sudo apt-get install -y build-essential cmake pkg-config libssl-dev ca-certificates git curl jq
+```
+
+Install Rust and Cargo 1.95 or newer. [Rustup installation instructions](https://rustup.rs/)
+
+Clone the repository and build from the lockfile.
+
+```sh
+git clone https://github.com/gklijs/skilj-shop.git
+cd skilj-shop
+cargo build --locked
+```
+
+## Run with embedded PostgreSQL
+
+On Debian 12 (bookworm) x86-64, install the embedded PostgreSQL runtime
+libraries and the system UTC time zone data.
+
+```sh
+sudo apt-get install -y libssl3 libxml2 liblz4-1 libzstd1 libgssapi-krb5-2 zlib1g tzdata
+unset DATABASE_URL
 cargo run --locked
 ```
 
-Without `DATABASE_URL`, skilj starts embedded Postgres **18.6.0**, downloading
-the binaries on the first run. Data persists in `.demo/postgres`; startup
-seeds two fictional purchases and tolerates already-existing order IDs.
-Allow time for the first build/download before presenting.
+Run as a regular user from the repository root. On the first run, skilj
+downloads PostgreSQL **18.6.0** from the Theseus GitHub releases into
+`~/.theseus/postgresql`. Allow outbound HTTPS to GitHub and its release
+downloads, and budget time for the download before presenting. Cargo
+downloads the locked Rust dependencies separately during the build.
 
-The downloaded Postgres binary also needs its system runtime libraries,
-including **`libxml2.so.2`** on Linux. Recent Ubuntu releases ship a different
-libxml2 ABI; use compatible runtime libraries or an external Postgres via
-`DATABASE_URL` if embedded startup reports a missing shared library.
+The server seeds two fictional purchases and prints the GraphQL endpoint
+(default `http://127.0.0.1:8080/graphql`) and four export commands. The
+endpoint serves queries, mutations and subscriptions. Use the terminal
+walkthrough below or a GraphQL client. Set `PORT` before startup to change
+the HTTP port.
 
-The server listens at **http://127.0.0.1:8080/graphql**. It serves GraphQL
-queries, mutations and subscriptions; no REST router is mounted, and no
-REST tokens are created. There is no bundled browser IDE; use your GraphQL
-client or the terminal walkthrough below. `PORT` overrides `8080`.
-
-Startup prints three `export` commands. Copy them into another terminal to
-set `SELLER_TOKEN`, `OTHER_SELLER_TOKEN` and `FINANCE_TOKEN`. Tokens last eight
-hours and use a fresh signing key on each startup. Restarting invalidates
-the previous tokens. The operator token is kept inside the process.
-
-Alternatively, point `DATABASE_URL` at a **dedicated demo database**:
+Stop the server with Ctrl-C. Start it again with the same command to keep
+the purchases. Embedded data is stored in `.demo/postgres` with its
+generated password in `.demo/postgres.pgpass`. To discard that default
+embedded database, stop the demo before running this command.
 
 ```sh
-DATABASE_URL=postgres://user:password@localhost:5432/shop_demo cargo run --locked
+rm -rf -- .demo/postgres .demo/postgres.pgpass
 ```
 
-Stop with Ctrl-C. To reset embedded data, stop the server and remove `.demo/`.
-Do not remove its contents while the server is running. External databases
-are not reset by removing this directory.
+This removes the local embedded cluster, including its orders and grants,
+and its password file. The demo recreates them on the next embedded run.
+Keep `.demo/keys.json` with any demo database you still use. It contains
+the demo's encryption key and is shared by both launch modes in a checkout.
+
+### Troubleshoot embedded startup
+
+Look for `libxml2.so.2: cannot open shared object file` in the startup
+error. The same loader problem can surface as an `initdb` error about the
+`postgres` program. Use `ldd` to check the downloaded binaries' dependencies.
+
+```sh
+ldd ~/.theseus/postgresql/18.6.0/bin/postgres
+```
+
+A `not found` entry identifies a missing runtime library. On Debian 12,
+`libxml2` supplies `libxml2.so.2`. Install the runtime packages above and
+retry. On a host that supplies only a newer ABI, such as Ubuntu 26.04,
+use the external database setup below.
+
+## Run with a dedicated Docker PostgreSQL database
+
+With Docker running and `openssl` installed, start a PostgreSQL 18.6
+container. It creates a dedicated `shop_demo` database and binds the
+database port to loopback. Run these commands in the terminal where you
+will start the Rust app.
+
+```sh
+SKILJ_SHOP_DB_PASSWORD=$(openssl rand -hex 16)
+docker run -d --name skilj-shop-postgres \
+  -p 127.0.0.1:55432:5432 \
+  -e POSTGRES_DB=shop_demo -e POSTGRES_USER=shop_demo \
+  -e POSTGRES_PASSWORD="$SKILJ_SHOP_DB_PASSWORD" postgres:18.6-alpine
+docker exec skilj-shop-postgres pg_isready -h 127.0.0.1 -U shop_demo -d shop_demo
+```
+
+Repeat the `pg_isready` command until it reports `accepting connections`,
+then launch the demo from the repository root.
+
+```sh
+DATABASE_URL="postgres://shop_demo:$SKILJ_SHOP_DB_PASSWORD@127.0.0.1:55432/shop_demo" cargo run --locked
+```
+
+`DATABASE_URL` bypasses the embedded server and its binary download. Stop
+the Rust app with Ctrl-C. To check persistence, rerun the launch command
+in the same shell with the container still running. Copy the new token
+exports.
+
+To stop PostgreSQL and keep the database, run `docker stop skilj-shop-postgres`.
+Resume it with `docker start skilj-shop-postgres` and repeat the readiness check.
+To discard the database, stop the Rust app before removing the container.
+
+```sh
+docker stop skilj-shop-postgres
+docker rm -v skilj-shop-postgres
+unset SKILJ_SHOP_DB_PASSWORD
+```
+
+`docker rm -v` deletes this dedicated container and its anonymous database
+volume, including both purchases and the demo grants.
 
 ## Talk walkthrough
 
-The examples require `curl` and `jq`. Define this helper in the terminal
-where you copied the tokens:
+In a second terminal at the repository root, paste the four exports the
+server printed, then define this helper. Tokens last eight hours and the
+server generates new ones on each restart.
 
 ```sh
 gql() {
   jq -n --rawfile query "$2" --arg order "${3:-order-1001}" \
     '{query: $query, variables: {order: $order}}' |
-    curl --silent --show-error http://127.0.0.1:8080/graphql \
+    curl --silent --show-error "$GRAPHQL_URL" \
       -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
       --data-binary @- | jq
 }
@@ -86,6 +160,21 @@ gql() {
 5. **Try another seller's purchase.**
    `gql "$SELLER_TOKEN" queries/seller.graphql order-1002` fails even with
    the order ID. `OTHER_SELLER_TOKEN` can read it; finance can reconcile it.
+
+For a restart check, copy the fresh exports and run both queries for each
+purchase with its authorized roles. Each response should contain its
+`data.projection.orderId` and the fields for that role.
+
+```sh
+gql "$SELLER_TOKEN" queries/seller.graphql order-1001
+gql "$FINANCE_TOKEN" queries/finance.graphql order-1001
+gql "$OTHER_SELLER_TOKEN" queries/seller.graphql order-1002
+gql "$FINANCE_TOKEN" queries/finance.graphql order-1002
+```
+
+After shutdown, run `git status --short` from the repository root. Git
+ignores the build output (`target/`), demo database and keys (`.demo/`),
+and local environment files such as `.env`.
 
 GraphQL projection fields use camelCase (`orderId`, `pricePaidCents`).
 Command payload JSON uses the Rust field names (`order_id`, `price_paid_cents`).
@@ -112,6 +201,9 @@ would need rules to preserve that separation.
 
 ## Develop and verify
 
+Install the `rustfmt` and `clippy` components if your Rust toolchain is
+missing them (`rustup component add rustfmt clippy`).
+
 ```sh
 cargo fmt --check
 cargo clippy --locked --all-targets -- -D warnings
@@ -123,11 +215,28 @@ matrix: allowed views, forbidden fields and projections, introspection,
 seller isolation, authentication, blocked writes and capability escalation,
 raw command/event redaction even at admin level, immediate capability
 revocation, and the absence of REST routes. The integration test starts an
-isolated embedded database and fails if it cannot start; it never silently
-skips authorization checks.
+isolated embedded database in the system temporary directory. Run
+`cargo test --locked --test access_control` as a regular user with the
+embedded runtime libraries and first-run download access described above.
+The test creates and starts its own database even if `DATABASE_URL` is set.
+It fails if the embedded server cannot start.
 
 `src/shop.rs` contains the domain and policies, `src/demo.rs` the local
 identities and seed data, `src/main.rs` the server, `queries/` the talk
 operations, and `tests/` the regression checks. Use standard `rustfmt`
 formatting and descriptive Rust names. Leave Git commits and pushes to
 the user.
+
+### Verification for issue #1
+
+- Debian 12.15 x86-64 in a fresh `rust:1-bookworm` container with Rust
+  1.99.1. Ran `cargo build --locked`, `cargo run --locked` with an empty
+  PostgreSQL download cache, and `cargo test --locked`.
+- Ubuntu 26.04.1 LTS x86-64 on WSL2 with Rust 1.100.0. Reproduced the
+  `libxml2.so.2` startup error and verified the `postgres:18.6-alpine`
+  fallback using the Docker startup, readiness, and cleanup commands above.
+
+Both setups served `order-1001` with the printed seller token. After an
+app restart, the four walkthrough queries returned both purchases under
+their authorized roles. After shutdown, `git status --short` showed no
+generated files.

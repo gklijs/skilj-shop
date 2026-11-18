@@ -2,27 +2,33 @@
 
 ## Project Structure & Module Organization
 
-The `skilj-shop` workspace currently contains no application source, tests, assets, or dependency manifests. No implementation language or framework is established. The existing hidden directories contain no project documentation; do not treat them as application modules.
-
-When introducing the initial implementation, document its actual layout in `README.md` and update this guide. Prefer clear boundaries between application code, tests, and static assets; adopt directories such as `src/`, `tests/`, and `public/` only when appropriate for the chosen framework.
+The Rust demo entry point is `src/main.rs`. Domain logic and policies live in
+`src/shop.rs`, demo identities and seeded orders in `src/demo.rs`, GraphQL
+examples in `queries/`, and integration tests in `tests/`.
 
 ## Build, Test, and Development Commands
 
-No install, development, build, lint, or test commands are currently configured. Do not assume commands such as `npm test` or `make build` work.
-
-When adding tooling, document exact commands and prerequisites in `README.md`. Include dependency installation, local startup, production builds, formatting, linting, and testing where applicable. Commit the relevant manifests and lockfiles so contributors can reproduce the environment.
+Use `cargo build --locked` to build and `cargo run --locked` to start the demo.
+See `README.md` for system prerequisites, the dedicated PostgreSQL fallback,
+and the GraphQL walkthrough. Use `cargo fmt --check` and
+`cargo clippy --locked --all-targets -- -D warnings` for formatting and linting.
 
 ## Coding Style & Naming Conventions
 
-No formatter, linter, or indentation standard is established. Follow the chosen language's conventions and configure its formatter before introducing substantial code. Keep indentation consistent within each file. Use descriptive names and follow framework conventions for filenames and module organization. Keep changes focused and avoid unrelated formatting edits.
+Use standard Rust naming and `rustfmt` formatting. Keep changes focused
+and avoid unrelated formatting edits.
 
 ## Testing Guidelines
 
-No test framework or coverage threshold exists yet. Add tests for new behavior and regression tests for bug fixes once executable code is introduced. Use descriptive test names that explain the expected behavior. Document test discovery patterns and the exact test command alongside the selected framework.
+Run `cargo test --locked` to discover and run tests under `tests/`.
+`cargo test --locked --test access_control` runs the authorization integration
+test, which requires embedded PostgreSQL at runtime. Add tests for new
+behavior and regression tests for bug fixes. Use descriptive test names
+that explain the expected behavior.
 
 ## Commit & Pull Request Guidelines
 
-Git history is unavailable in this workspace, so historical commit conventions cannot be verified. Use concise, imperative commit subjects. For issue-related work, include `Fixes #120` when fully resolving the issue or `Refs #120` otherwise.
+Use concise, imperative commit subjects. For issue-related work, include `Fixes #120` when fully resolving the issue or `Refs #120` otherwise.
 
 Pull requests should explain the change, link relevant issues, and report validation performed or why checks could not run. Include screenshots for visible interface changes.
 

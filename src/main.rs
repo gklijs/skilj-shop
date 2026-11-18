@@ -23,7 +23,12 @@ async fn run() -> Result<(), Error> {
         if std::env::var_os("SKILJ_LOCAL_DATA_DIR").is_none() {
             config.data_dir = PathBuf::from(".demo/postgres");
         }
-        Some(LocalPostgres::start(config).await?)
+        println!("Starting embedded PostgreSQL. The first run downloads the database binaries.");
+        Some(LocalPostgres::start(config).await.inspect_err(|_| {
+            eprintln!(
+                "See the embedded PostgreSQL troubleshooting and DATABASE_URL fallback in README.md."
+            );
+        })?)
     } else {
         None
     };
@@ -33,12 +38,14 @@ async fn run() -> Result<(), Error> {
     };
     let demo = Demo::start(&database_url, &PathBuf::from(".demo/keys.json")).await?;
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
-    println!("GraphQL: http://127.0.0.1:{port}/graphql");
-    println!("Demo tokens expire after 8 hours; restart to get new tokens.");
+    let address = listener.local_addr()?;
+    println!("GraphQL is ready at http://{address}/graphql");
+    println!("Copy these exports into another terminal, then run the seller query in the README walkthrough.");
+    println!("export GRAPHQL_URL='http://{address}/graphql'");
     println!("export SELLER_TOKEN='{}'", demo.seller.token);
     println!("export OTHER_SELLER_TOKEN='{}'", demo.other_seller.token);
     println!("export FINANCE_TOKEN='{}'", demo.finance.token);
-    println!("Run the queries in queries/; see README.md for the talk walkthrough.");
+    println!("Demo tokens expire after 8 hours. Copy the new tokens after each restart.");
     let result = axum::serve(listener, demo.router.clone())
         .with_graceful_shutdown(shutdown_signal())
         .await;

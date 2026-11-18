@@ -1,0 +1,10 @@
+# Build output, demo database, and demo keys
+/target/
+/.demo/
+
+# Local credentials and per-developer configuration
+.env
+.env.*
+!.env.example
+/.aws/
+/.codex/
