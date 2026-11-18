@@ -1,0 +1,10 @@
+query SellerOrder($order: String! = "order-1001") {
+  projection(boundedContext: "shop", name: "FulfillmentOrder", key: $order) {
+    ... on shop_FulfillmentOrder {
+      orderId
+      description
+      quantity
+      address
+    }
+  }
+}

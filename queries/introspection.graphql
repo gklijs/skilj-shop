@@ -1,0 +1,8 @@
+query VisibleProjections {
+  __schema {
+    types {
+      name
+      fields { name }
+    }
+  }
+}
